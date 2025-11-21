@@ -183,8 +183,8 @@ pub fn run_winit() -> Result<(), Box<dyn std::error::Error>> {
                         event.state(),
                         0.into(),
                         0,
-                        |_, _, _| {
-                            //
+                        |_, _mods, keysym| {
+                            tracing::info!("Keysym: {:?}", keysym);
                             FilterResult::Forward
                         },
                     );
