@@ -256,7 +256,7 @@ fn handle_dnd<D, S>(
                 } else {
                     data.accepted = false;
                 }
-            } else {
+            } else if data.finished {
                 offer.post_error(
                     wl_data_offer::Error::InvalidFinish,
                     "Accept request after Finish.",
@@ -274,7 +274,7 @@ fn handle_dnd<D, S>(
                 if valid {
                     source.send(&mime_type, fd);
                 }
-            } else {
+            } else if data.finished {
                 offer.post_error(
                     wl_data_offer::Error::InvalidFinish,
                     "Receive request after Finish.",
@@ -317,16 +317,16 @@ fn handle_dnd<D, S>(
                 );
                 return;
             }
-            data.active = false;
-            data.finished = true;
             if let Some(source) = source.take() {
                 source.finished();
-            } else {
+            } else if data.finished {
                 offer.post_error(
                     wl_data_offer::Error::InvalidFinish,
                     "Cannot finish a data offer, which was finished already.",
                 );
             }
+            data.active = false;
+            data.finished = true;
         }
         Request::SetActions {
             dnd_actions,
@@ -374,7 +374,7 @@ fn handle_dnd<D, S>(
                             .expect("We have selected a single value at this point."),
                     );
                 }
-            } else {
+            } else if data.finished {
                 offer.post_error(
                     wl_data_offer::Error::InvalidFinish,
                     "SetActions request after Finish.",
@@ -399,6 +399,14 @@ impl<S: Source> OfferData for WlOfferData<S> {
     fn disable(&self) {
         self.state.lock().unwrap().active = false;
         self.source.choose_action(DndAction::None);
+        for offer in &self.wl_offers {
+            if let Some(data) = offer
+                .object_data()
+                .and_then(|arc| arc.downcast_ref::<WlDndDataOffer<S>>())
+            {
+                data.source.lock().unwrap().take();
+            }
+        }
     }
 
     fn drop(&self) {
@@ -524,12 +532,7 @@ impl<D: SeatHandler + DataDeviceHandler + 'static> DndFocus<D> for WlSurface {
         }
     }
 
-    fn leave<S: Source>(&self, _data: &mut D, offer: Option<&mut WlOfferData<S>>, seat: &Seat<D>) {
-        if let Some(offer) = offer {
-            if offer.state.lock().unwrap().dropped {
-                return;
-            }
-        }
+    fn leave<S: Source>(&self, _data: &mut D, _offer: Option<&mut WlOfferData<S>>, seat: &Seat<D>) {
         let seat_data = seat
             .user_data()
             .get::<RefCell<SeatData<D::SelectionUserData>>>()
