@@ -35,6 +35,14 @@ pub struct ModifiersState {
 }
 
 impl ModifiersState {
+    /// Checks if any of the primary modifier keys are active.
+    pub fn is_any_modifier_active(&self) -> bool {
+        self.ctrl
+            || self.alt
+            || self.shift
+            || self.logo
+    }
+
     /// Update the modifiers state from an xkb state
     pub fn update_with(&mut self, state: &xkb::State) {
         self.ctrl = state.mod_name_is_active(&xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
